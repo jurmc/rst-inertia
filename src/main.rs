@@ -14,10 +14,58 @@ use cairo::Error;
 use std::f64::consts::PI;
 use std::time::Duration;
 use std::mem;
+//use rand::prelude::*;
+use rand::thread_rng;
+use rand::Rng;
 
-fn draw_shape(x: f64, y: f64, rotation: f64,       // Placement
-               scale: f64, radius: f64, angle: f64, // Shape geometry
-               surface: &ImageSurface) -> Result<(), Error> {
+const ACC: f64 = 0.05;
+
+struct Ball {
+    x: f64,
+    y: f64,
+    vx: f64,
+    vy: f64,
+}
+
+impl Ball {
+    fn new() -> Ball {
+        Ball {
+            x: thread_rng().gen_range(0.0..640.0),
+            y: 0.0,
+            vx: thread_rng().gen_range(-2.0..2.0),
+            vy: 0.0
+        }
+    }
+
+    fn draw(&self, surface: &ImageSurface) -> Result<(), Error> {
+        let ctx = Context::new(&surface).unwrap();
+        ctx.translate(self.x, self.y);
+
+        ctx.set_source_rgba(1.0, 0.5, 0.5, 1.0);
+        ctx.arc(0.0, 0.0, 5.0, 0.0, 2.0 * PI);
+        ctx.fill()?;
+
+        Ok(())
+    }
+
+    fn tick(&mut self) {
+        self.vy += ACC;   // TODO: consider t_diff
+        self.y += self.vy; // TODO: consider t_diff
+
+        if self.y > 480.0 {
+            self.vy = -self.vy;
+        }
+
+        self.x += self.vx;
+        if self.x < 0.0 || self.x > 640.0 {
+            self.vx = -self.vx
+        }
+    }
+}
+
+fn draw_player(x: f64, y: f64, rotation: f64,       // Placement
+              scale: f64, radius: f64, angle: f64, // Shape geometry
+              surface: &ImageSurface) -> Result<(), Error> {
     let ctx = Context::new(&surface).unwrap();
     ctx.translate(x, y);
     ctx.scale(scale, scale);
@@ -79,11 +127,24 @@ pub fn main() -> Result<(), Error> {
     let mut radius = 100.0;
     let mut angle = 135.0;
     let mut event_pump = sdl_ctx.event_pump().unwrap();
+
+    let mut balls: Vec<Ball> = Vec::new();
+
     'running: loop {
 
+        if rotation as u32 % 30 == 0 {
+            if balls.len() < 15 {
+                balls.push(Ball::new());
+            }
+        }
+
         rotation = (rotation + 3) % 360;
-        draw_shape(x, y, rotation as f64,
-            1.0, radius, angle, &cairo_surface)?;
+        draw_player(x, y, rotation as f64, 1.0, radius, angle, &cairo_surface)?;
+
+        balls.iter_mut().for_each(|ball| {
+            ball.draw(&cairo_surface);
+            ball.tick();
+        });
         cairo_surface.flush();
 
         texture.update(None, &mut pixels[..], 640 * 4 * mem::size_of::<u8>()).unwrap();

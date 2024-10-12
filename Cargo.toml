@@ -6,3 +6,4 @@ edition = "2021"
 [dependencies]
 cairo-rs = "0.20.1"
 sdl2 = "0.37.0"
+rand = "0.8.5"
