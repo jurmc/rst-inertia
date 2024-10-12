@@ -20,6 +20,71 @@ use rand::Rng;
 
 const ACC: f64 = 0.05;
 
+struct Particle {
+    x: f64,
+    y: f64,
+    vx: f64,
+    vy: f64,
+}
+
+impl Particle {
+    fn new(ball: &Ball) -> Particle {
+        Particle {
+            x: ball.x,
+            y: ball.y, // TODO: position in the midlle of screen
+            vx: ball.vx + thread_rng().gen_range(-1.5..1.5),
+            vy: ball.vy + thread_rng().gen_range(-3.0..-1.5),
+        }
+    }
+
+    fn tick(&mut self) {
+        self.vy += ACC;
+
+        self.x += self.vx;
+        self.y += self.vy;
+    }
+
+    fn draw(&self, surface: &ImageSurface) -> Result<(), Error> {
+        let ctx = Context::new(&surface).unwrap();
+        ctx.translate(self.x, self.y);
+
+        ctx.set_source_rgba(0.9, 0.9, 0.9, 1.0);
+        ctx.arc(0.0, 0.0, 1.0, 0.0, 2.0 * PI);
+        ctx.fill()?;
+
+        Ok(())
+    }
+}
+
+struct Blow {
+    particles: Vec<Particle>,
+    cntr: u32,
+}
+
+impl Blow {
+    fn new(ball: &Ball) -> Blow {
+        let mut particles: Vec<Particle> = Vec::new();
+        for _ in 0..80 {
+            particles.push(Particle::new(ball))
+        }
+        Blow {
+            particles: particles,
+            cntr: 0,
+        }
+    }
+
+    fn tick(&mut self) {
+        self.particles.iter_mut().for_each(|p| p.tick());
+        self.particles.retain(|p| p.y < 480.0);
+    }
+
+    fn draw(&self, surface: &ImageSurface) -> Result<(), Error> {
+        self.particles.iter().for_each(|p| p.draw(surface).unwrap());
+        Ok(())
+    }
+}
+
+#[derive(Clone, PartialEq)]
 struct Ball {
     x: f64,
     y: f64,
@@ -129,6 +194,7 @@ pub fn main() -> Result<(), Error> {
     let mut event_pump = sdl_ctx.event_pump().unwrap();
 
     let mut balls: Vec<Ball> = Vec::new();
+    let mut blows: Vec<Blow> = Vec::new();
 
     'running: loop {
 
@@ -136,6 +202,7 @@ pub fn main() -> Result<(), Error> {
             if balls.len() < 15 {
                 balls.push(Ball::new());
             }
+            blows.retain(|b| b.particles.len() > 0);
         }
 
         rotation = (rotation + 3) % 360;
@@ -145,7 +212,29 @@ pub fn main() -> Result<(), Error> {
             ball.draw(&cairo_surface);
             ball.tick();
         });
+        blows.iter_mut().for_each(|blow| {
+            blow.draw(&cairo_surface);
+            blow.tick();
+        });
         cairo_surface.flush();
+
+        // Collision detection
+        let balls_clone = balls.clone();
+        let mut balls_collided: Vec<Ball> = Vec::new();
+        balls.retain(|b1| {
+            let mut result = true;
+            balls_clone.iter().for_each(|b2| {
+                if b2 != b1 {
+                    let len = ((b1.x - b2.x).powi(2) + (b1.y - b2.y).powi(2)).sqrt();
+                    if len < 10.0 {
+                        result = false;
+                        balls_collided.push(b2.clone());
+                    }
+                }
+            });
+            result
+        });
+        balls_collided.iter().for_each(|b| blows.push(Blow::new(b)));
 
         texture.update(None, &mut pixels[..], 640 * 4 * mem::size_of::<u8>()).unwrap();
         canvas.copy(&texture, None, None).unwrap();
