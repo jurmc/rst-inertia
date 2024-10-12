@@ -4,9 +4,7 @@ extern crate cairo;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 use sdl2::pixels::PixelFormatEnum;
-use sdl2::surface::Surface as SDLSurface;
 use sdl2::render::TextureAccess;
-use sdl2::rect::Rect;
 
 use cairo::ImageSurface;
 use cairo::Format;
@@ -26,15 +24,15 @@ fn draw_shape(x: f64, y: f64, rotation: f64,       // Placement
     ctx.rotate(rotation * PI/180.0);
 
     // White background
-    ctx.set_source_rgba(1.0, 1.0, 1.0, 1.0);
+    ctx.set_source_rgba(0.2, 0.2, 0.2, 1.0);
     ctx.paint()?;
 
     // Arc
     let (xc, yc) = (0.0, 0.0);
-    let a1 = (PI/180.0);
+    let a1 = PI/180.0;
     let a2 = (a1 + angle) * (PI/180.0);
 
-    ctx.set_source_rgba(0.0, 0.0, 0.0, 1.0);
+    ctx.set_source_rgba(0.90, 0.85, 0.25, 1.0);
     ctx.set_line_width(5.0);
     ctx.arc(xc, yc, radius, a1, a2);
     ctx.stroke()?;
@@ -69,10 +67,10 @@ pub fn main() -> Result<(), Error> {
     let texture_creator = canvas.texture_creator();
     let mut texture = texture_creator.create_texture(PixelFormatEnum::BGRA32, TextureAccess::Streaming, 640, 480).unwrap();
 
-    static mut pixels: [u8; 640 * 480 * 4] = [0u8; 640 * 480 * 4];
+    let mut pixels = [0u8; 640 * 480 * 4];
     let cairo_surface: ImageSurface;
     unsafe {
-        cairo_surface = ImageSurface::create_for_data(&mut pixels[..], Format::ARgb32, 640, 480, (640 * 4 * mem::size_of::<u8>()) as i32)
+        cairo_surface = ImageSurface::create_for_data_unsafe(pixels[..].as_mut_ptr(), Format::ARgb32, 640, 480, (640 * 4 * mem::size_of::<u8>()) as i32)
             .expect("Couldn't create Cairo surface (using pixels from SDL surface)");
     }
 
@@ -85,12 +83,10 @@ pub fn main() -> Result<(), Error> {
 
         rotation = (rotation + 3) % 360;
         draw_shape(x, y, rotation as f64,
-            1.0, radius, angle, &cairo_surface);
+            1.0, radius, angle, &cairo_surface)?;
         cairo_surface.flush();
 
-        unsafe {
-            texture.update(None, &mut pixels[..], 640 * 4 * mem::size_of::<u8>());
-        }
+        texture.update(None, &mut pixels[..], 640 * 4 * mem::size_of::<u8>()).unwrap();
         canvas.copy(&texture, None, None).unwrap();
         canvas.present();
 
