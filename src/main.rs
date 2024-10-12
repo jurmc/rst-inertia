@@ -136,10 +136,6 @@ fn draw_player(x: f64, y: f64, rotation: f64,       // Placement
     ctx.scale(scale, scale);
     ctx.rotate(rotation * PI/180.0);
 
-    // White background
-    ctx.set_source_rgba(0.2, 0.2, 0.2, 1.0);
-    ctx.paint()?;
-
     // Arc
     let (xc, yc) = (0.0, 0.0);
     let a1 = PI/180.0;
@@ -172,6 +168,7 @@ pub fn main() -> Result<(), Error> {
 
     let window = video_subsystem.window("rust-sdl2-cairo-example", 640, 480)
         .position_centered()
+        .fullscreen()
         .build()
         .unwrap();
 
@@ -199,14 +196,20 @@ pub fn main() -> Result<(), Error> {
     'running: loop {
 
         if rotation as u32 % 30 == 0 {
-            if balls.len() < 15 {
+            if balls.len() < 25 {
                 balls.push(Ball::new());
             }
             blows.retain(|b| b.particles.len() > 0);
         }
 
         rotation = (rotation + 3) % 360;
-        draw_player(x, y, rotation as f64, 1.0, radius, angle, &cairo_surface)?;
+
+        // Background
+        let ctx = Context::new(&cairo_surface).unwrap();
+        ctx.set_source_rgba(0.2, 0.2, 0.2, 1.0);
+        ctx.paint()?;
+
+        //draw_player(x, y, rotation as f64, 1.0, radius, angle, &cairo_surface)?;
 
         balls.iter_mut().for_each(|ball| {
             ball.draw(&cairo_surface);
