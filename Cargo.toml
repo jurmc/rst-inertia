@@ -1,5 +1,5 @@
 [package]
-name = "rust-sdl2-cairo-example"
+name = "rust-sdl2-cairo-example-animation"
 version = "0.1.0"
 edition = "2021"
 
